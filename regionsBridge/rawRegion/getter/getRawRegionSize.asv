@@ -1,0 +1,23 @@
+function size = getRawRegionSize(regions, op)
+arguments
+    regions
+    opt.states = 'all'
+    opt.regions = {'all'}
+end
+%GETRAWREGIONSIZE Summary of this function goes here
+%   Detailed explanation goes here
+outputArg1 = inputArg1;
+outputArg2 = inputArg2;
+end
+
+function flag = checkState(region, opt)
+    if ismember('all', region.state)
+        flag = true;
+    else
+        flag = ismember(region.state, opt.states);
+    end
+end
+
+function flag = checkRegion(region, opt)
+    
+end
