@@ -1,0 +1,93 @@
+function [seg_alpha, seg_beta, seg_] = FitPoweLawPerSegment(R, region, state, all_segments, opt)
+
+arguments
+    R (1,1) regions
+    region (1,1) string
+    state (1,1) string = "all"
+    opt.p_threshold (1,1) double = 0.05
+    opt.n_swipe (1,1) double = 10
+end
+
+n_seg = size(all_segments, 1);
+
+seg_alpha = NaN(n_seg, 1);
+seg_beta = NaN(n_seg, 1);
+seg_gamma_exp = NaN(n_seg, 1);
+seg_gamma_area = NaN(n_seg, 1);
+seg_gamma_shape = NaN(n_seg, 1);
+seg_chi = NaN(n_seg, 1);
+
+seg_xminS = NaN(n_seg, 1);
+seg_xmaxS = NaN(n_seg, 1);
+seg_xminT = NaN(n_seg, 1);
+seg_xmaxT = NaN(n_seg, 1);
+
+% Pre-compute outside the loop
+aval_tDS_raw = R.avalSizeOverTime('all', region);
+% aval_tDS_raw est un vecteur concaténé avec des 0 séparateurs
+% il faut extraire les profils de toutes les avalanches d'abord
+[ST_all, lenST_all] = separateAvalSizeTimeDependent(aval_tDS_raw);
+% maintenant ST_all{i} correspond à l'avalanche i dans intervals_all original
+
+% filter by state
+if state ~= "all"
+    ST_all    = ST_all(ind);    % ind = intersect(ind1,ind2) calculé plus tôt
+    lenST_all = lenST_all(ind);
+end
+% maintenant length(ST_all) == length(aval_starts) par construction
+
+
+for seg = 1:n_seg
+    t1 = all_segments(seg, 1);
+    t2 = all_segments(seg, 2);
+    in_seg = aval_starts >= t1 & aval_stops <= t2;
+    S_seg = S_all(in_seg);
+    T_seg = T_all(in_seg);
+    if sum(in_seg) < opt.min_avals
+        %display trop peu;
+        continue
+    end
+
+    % filter ST by segment
+    ST_seg    = ST_all(in_seg);
+    lenST_seg = lenST_all(in_seg);
+
+    try
+        [beta_seg, xmin_S, xmax_S, p_T] = swipeMLEDiscretePowerLawBounds(S_seg, opt.p_threshold, opt.n_swipe, 0.1, 3, false);
+        [alpha_seg, xmin_T, xmax_T, p_S] = swipeMLEDiscretePowerLawBounds(T_seg, opt.p_threshold, opt.n_swipe, 1, 3, false);
+        seg_xminS(seg) = xmin_S;
+        seg_xmaxS(seg) = xmax_S;
+        seg_xminT(seg) = xmin_T;
+        seg_xmaxT(seg) = xmax_T;
+
+        %display([xmin_S, xmax_S, xmin_T, xmax_T]);
+
+        seg_alpha(seg) = alpha_seg;
+        seg_beta(seg)  = beta_seg;
+        seg_gamma_exp(seg) = (alpha_seg - 1) / (beta_seg - 1);
+
+        % gamma_area
+        try
+            A_seg = getArea(T_seg, S_seg);
+            lm_area = fitPowerFunction(A_seg);
+            seg_gamma_area(seg) = lm_area.Coefficients.Estimate(2);
+        catch, end
+
+         % gamma_shape
+        try
+            ST_AVG_seg = AvalAverageSizeTimeDependent(ST_seg, lenST_seg);
+            [x_seg, shape_seg, T_cs_seg] = transformCollapseShape(ST_AVG_seg);
+            [T_cs_seg, shape_seg] = lifetimeThresholdCollapseShapeTransformed(T_cs_seg, shape_seg, 4);
+            seg_gamma_shape(seg) = fitCollapseShape(T_cs_seg, shape_seg, 10);
+        catch, end
+
+        % chi
+        try
+            [~, ~, mean_autocorr_seg, lm_ac] = autocorrelationDecay(ST_seg, lenST_seg, 1/3);
+            seg_chi(seg) = -lm_ac.Coefficients.Estimate(2);
+        catch, end
+
+    catch
+        % fit failed — leave NaN
+    end
+end

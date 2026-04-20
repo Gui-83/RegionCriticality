@@ -1,0 +1,27 @@
+function plotCriticalStatisticMetrics(xmin_S, xmin_T, xmax_S, xmax_T, alpha, beta, expected_gamma, lm, x, T_cs, shape, gam, m, r, lm_branching, decay, mean_autocorr, lm_autocorr)
+
+arguments
+    R (1,1) regions
+    region (1,1) string
+    state (1,1) string = "all"
+    bin_size (1,1) {mustBeNumeric, mustBePositive} = 0.5
+    window (1,1) = 0.05
+    opt.interval (1,2) double = [NaN, NaN]
+    opt.states (1,:) string = ["sws", "rem", "other"]
+    opt.colors (:,3) double = [0.2 0.4 0.8; 0.8 0.2 0.2; 0.4 0.8 0.2]
+    opt.min_avals (1,1) {mustBeNumeric} = 50
+    opt.p_threshold (1,1) double = 0.05
+    opt.n_swipe (1,1) double = 10
+    opt.st (1,1) double = 100
+    opt.wd (1,1) double = 500
+    opt.slownr (1,1) double = 0
+end
+
+[fig,axs] = makeFigure('Critical Brain Statistics',sprintf('Critical Brain Statistics in the %s for the %s state', region, state),[2,4]);
+plotDiscretePowerLawDensityFit(T, xmin_T, xmax_T, alpha, "alpha", ax=axs(1), title = "Power Law Distribution of T");
+plotDiscretePowerLawDensityFit(S, xmin_S, xmax_S, beta, "beta", ax=axs(2), title = "Power Law Distribution of S");
+plotPowerLawFunction(lm, ax=axs(3), expected_gamma=expected_gamma);
+plotScalledShapeCollapseTransform(x, T_cs, shape, gam, ax=axs(4));
+plotBranchingRatioFit(m, r, lm_branching, ax=axs(5));
+plotAutocorrelationDecay(decay, mean_autocorr, lm_autocorr, 1/3, ax = axs(6), loglog=false);
+plotAutocorrelationDecay(decay, mean_autocorr, lm_autocorr, 1/3, ax = axs(7), loglog=true);

@@ -1,0 +1,114 @@
+
+function plotStateCriticalityOverTime_sliding_window(R, region, state, bin_centers, n_total, n_powerlaw,n_proportion, t_start, t_end, all_segments, seg_alpha, seg_beta, seg_gamma_exp, seg_gamma_area, seg_gamma_shape, seg_chi, wd, step, opt)
+
+arguments
+    R (1,1) regions
+    region (1,1) string
+    state (1,1) string
+    bin_centers
+    n_total
+    n_powerlaw
+    n_proportion
+    t_start
+    t_end
+    all_segments
+    seg_alpha
+    seg_beta
+    seg_gamma_exp
+    seg_gamma_area
+    seg_gamma_shape
+    seg_chi
+    wd
+    step
+    opt.states (1,:) string = ["sws", "rem", "other"]
+    opt.colors (:,3) double = [0.2 0.4 0.8; 0.8 0.2 0.2; 0.4 0.8 0.2]
+    opt.slownr (1,1) double = 0
+end
+
+fig_title = sprintf('Criticality over time — %s — %s', region, state);
+[fig, axs] = makeFigure(fig_title, fig_title, [2,1]);
+ax     = axs(1);   % main plot (top)
+ax_stats = axs(2); % statistics (bottom)
+
+% colored background bands per state (only when state='all')
+if state == "all"
+    state_segments = [];
+    for s = 1:length(opt.states)
+        try
+            [~,~,s_index,~] = R.arrayInd(opt.states(s), region);
+            st = R.state.times{s_index};
+            state_segments = [state_segments; st, repmat(s, size(st,1), 1)];
+        catch
+            warning('plotStateCriticalityOverTime:missingState', 'State "%s" not found, skipping.', opt.states(s));
+        end
+    end
+    state_segments = sortrows(state_segments, 1);
+    for s = 1:length(opt.states)
+        color = opt.colors(s,:);
+        segs_s = state_segments(state_segments(:,3)==s, 1:2);
+        for k = 1:size(segs_s,1)
+            if k == 1, vis = 'on'; else, vis = 'off'; end
+            patch(ax, [segs_s(k,1) segs_s(k,2) segs_s(k,2) segs_s(k,1)], ...
+                [0 0 max(n_total)*1.2 max(n_total)*1.2], color, ...
+                'FaceAlpha', 0.2, 'EdgeColor', 'none', ...
+                'DisplayName', char(opt.states(s)), ...
+                'HandleVisibility', vis);
+        end
+    end
+end
+
+plot(ax, bin_centers, n_total,    'k-',  'LineWidth', 2, 'DisplayName', 'Total avalanches');
+plot(ax, bin_centers, n_powerlaw, 'r', 'LineWidth', 2, 'DisplayName', 'Power-law avalanches');
+plot(ax, bin_centers, n_proportion*max(n_total), 'g--', 'LineWidth', 1, 'DisplayName', 'Power-law proportion avalanches');
+
+xlabel(ax, 'Time (s)');
+ylabel(ax, 'Number of avalanches per bin');
+xlim(ax, [t_start, t_end]);
+if max(n_total) > 0
+    ylim(ax, [0, max(n_total)*1.2]);
+end
+
+plot(ax, NaN, NaN, 'HandleVisibility', 'on', ...
+    'DisplayName', sprintf("Sliding window : size %d, step %d", wd, step), ...
+    'LineStyle', 'none', 'Marker', 'none');
+
+legend(ax, 'show');
+
+% --- 7. Plot statistics per segment ---
+seg_centers = (all_segments(:,1) + all_segments(:,2)) / 2;
+valid = ~isnan(seg_alpha);
+
+stats = {seg_alpha, seg_beta, seg_gamma_exp, seg_gamma_area, seg_gamma_shape, seg_chi};
+labels = {'\alpha', '\beta', '\gamma_{exp}', '\gamma_{area}', '\gamma_{shape}', '\chi'};
+colors_stats = lines(length(stats));
+
+%display(seg_alpha(1:4));
+%display(valid);
+
+hold(ax_stats, 'on');
+for k = 1:length(stats)
+    v = stats{k};
+    plot(ax_stats, seg_centers(valid), v(valid), 'o-', ...
+        'Color', colors_stats(k,:), 'LineWidth', 1.5, ...
+        'DisplayName', labels{k});
+end
+xlabel(ax_stats, 'Time (s)');
+ylabel(ax_stats, 'Exponent value');
+xlim(ax_stats, [t_start, t_end]);
+
+legend(ax_stats, 'show');
+
+hold(ax_stats, 'off');
+hold(ax, 'off');
+end
+
+
+
+%intervals_all = Restrict(intervals_all, state_times, shift=true);
+%S_all = Restrict([intervals_all(:,1),S_all], state_times, shift=true);
+%S_all = S_all(:,2);
+%T_all = Restrict([intervals_all(:,1),T_all], state_times, shift=true);
+%T_all = T_all(:,2);
+
+%aval_starts = intervals_all(:,1);
+%aval_stops  = intervals_all(:,2);
