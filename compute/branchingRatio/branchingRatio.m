@@ -14,6 +14,7 @@ function [m, r, lm] = branchingRatio(profile, kmax)
     nonNegative = r > 0;
     x = x(nonNegative);
     y = r(nonNegative);
+
     lm = fitlm(x, log(y));
     m = exp(lm.Coefficients.Estimate(2));
 end

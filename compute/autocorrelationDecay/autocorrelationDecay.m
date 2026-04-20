@@ -5,9 +5,11 @@ arguments
     T_ref
     opt.rSquaredMin = 0.8
     opt.interpn = 200
+    opt.min_uniqueST_lengths = 10
+    opt.min_sameLenSTindices_length = 20
 end
     uniqueST_lengths = unique(lengthST);
-    uniqueST_lengths = uniqueST_lengths(uniqueST_lengths > 10); 
+    uniqueST_lengths = uniqueST_lengths(uniqueST_lengths > opt.min_uniqueST_lengths); 
     uniqueST_lengths = sort(uniqueST_lengths);
     m = length(uniqueST_lengths);
     autocorr = cell(1, m);
@@ -18,7 +20,7 @@ end
     for i = 1:m
         len = uniqueST_lengths(i);
         sameLenSTindices = lengthST == len;
-        if sum(sameLenSTindices) < 20
+        if sum(sameLenSTindices) < opt.min_sameLenSTindices_length
             continue
         end
         sameLenST = ST(sameLenSTindices);
