@@ -5,4 +5,3 @@ function D = DiscreteBoundedPowerLawLikelihoodDerivative(n, l1, t, log_t, alpha)
 
     D = -l1 + n * l2 / l3;
 end
-
