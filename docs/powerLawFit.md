@@ -10,7 +10,7 @@ The MLE is computed by the `DiscreteBoundedPowerLawMLE` function.
 
 ## Grid Search for Range Parameters  
 
-The only way to find the optimal `xmin` and `xmax` is, unfortunately, to perform a grid search over the parameter space. This parameter space is too large for an exhaustive grid search. To resolve this issue, we take advantage of the logarithmic nature of the power law and search through logarithmically spaced values of `xmin` and `xmax$, meaning we check:  
+The only way to find the optimal `xmin` and `xmax` is, unfortunately, to perform a grid search over the parameter space. This parameter space is too large for an exhaustive grid search. To resolve this issue, we take advantage of the logarithmic nature of the power law and search through logarithmically spaced values of `xmin` and `xmax`, meaning we check:  
 
 $
 x_{\text{min}} = \alpha + b^i, \quad x_{\text{max}} = x_{\text{min}} + b^j
