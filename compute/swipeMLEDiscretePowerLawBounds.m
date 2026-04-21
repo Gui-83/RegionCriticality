@@ -1,94 +1,109 @@
-function [alpha, xmin, xmax, p] = swipeMLEDiscretePowerLawBounds(x, significanceLevel, dicoStep, min_decade, base, verbose)
-    % x: data
-    % significanceLevel: significance level for the Kolmogorov-Smirnov test
-    % dicoStep: number of step to perform the dichotomy
-    % min_decade: minimum number of decade between xmin and xmax
-    % base: base of the grid search
-    % verbose: display progress bar
+function [alpha,xmin,xmax,p] = swipeMLEDiscretePowerLawBounds(x,significanceLevel,dicoStep,min_decade,base)
+% x: data
+% significanceLevel: significance level for the Kolmogorov-Smirnov test, e.g., 0.1
+% dicoStep: number of step to perform the dichotomy
+% min_decade: minimum number of decade between xmin and xmax
+% base: base of the logarithmic grid search
 
-    %see docs/powerLawFit.md for more information
-    x = preprocess(x);
-    xminBound = min(x);
-    xmaxBound = max(x);
-
-    if xmaxBound - xminBound - 10^min_decade < 0
-        p = 0;
-        alpha = NaN;
-        xmin = 1;
-        xmax = 1;
-        return
-    end
-    
-    current_p = 0;
-    current_alpha = NaN;
-    current_xmin = 1;
-    current_xmax = 1;
-    
-    if verbose
-        f = waitbar(0,'Please wait...');
-    end
-
-    total_iterations = get_total_iteration(xmaxBound, xminBound, min_decade, base);
-
-    imax = upper_i(xmaxBound, xminBound, min_decade, base);
-    iter = 0;
-    for i = 0:imax
-        xmin = getXmin(xminBound, base, i);
-        [lowerj, upperj] = bound_j(xmaxBound, xmin, min_decade, base);
-        for j = lowerj:upperj
-            xmax = getXmax(xmin, base, j);
-            iter = iter + 1;
-            if verbose
-                waitbar((iter-1)/total_iterations, f, ...
-                    sprintf('Computing (%d/%d)', iter, total_iterations));
-            end
-            alpha = DiscreteBoundedPowerLawMLE(x, xmin, xmax, dicoStep); % perform MLE
-            p = kolmogorovSmirnovGoodnessFit(x, xmin, xmax, alpha); % perform Kolmogorov-Smirnov test
-            if (p > significanceLevel)
-                if log10(xmax/xmin) > log10(current_xmax/current_xmin) % if the range is better that the previous fit, keeps the current fit
-                    current_p = p;
-                    current_alpha = alpha;
-                    current_xmin = xmin;
-                    current_xmax = xmax;
-                end
-            end
-        end
-    end
-    alpha = current_alpha;
-    xmin = current_xmin;
-    xmax = current_xmax;
-    p = current_p;
-    if verbose
-        close(f);
-    end
+arguments
+  x
+  significanceLevel (1,1) = 0.15
+  dicoStep (1,1) = 10
+  min_decade (1,1) = 0.1
+  base (1,1) = 2
 end
 
-function xmin = getXmin(xminBound, base, i)
-    xmin = floor(xminBound + base^i);
+% see docs/powerLawFit.md for more information
+x = nonUnique(x);
+xminBound = min(x);
+xmaxBound = max(x);
+
+if xmaxBound - xminBound - 10^min_decade < 0
+  p = 0;
+  alpha = NaN;
+  xmin = 1;
+  xmax = 1;
+  return
 end
 
-function xmax = getXmax(xmin, base, j)
-    xmax = floor(xmin + base^j);
+% build ranges for grid search, i: x min, j: x max
+i_max = floor(log(xmaxBound - xminBound - 10^min_decade) / log(base)); % see docs/powerLawFit.md for info
+x_min = logCeil(xminBound,base,(0:i_max).');
+[lower_j,upper_j] = bound_j(xmaxBound,x_min,min_decade,base);
+x_max = arrayfun(@(x,y,z) logCeil(x,base,y:z),x_min,lower_j,upper_j,'UniformOutput',false);
+ranges = [repelem(x_min,cellfun(@numel,x_max)),[x_max{:}].'];
+
+% fit exponent, copmute KS statistic
+alpha = arrayfun(@(a,b) DiscreteBoundedPowerLawMLE(x,a,b,dicoStep), ranges(:,1), ranges(:,2));
+D = arrayfun(@(a,b,c) ksStatistic(x,a,b,c,100), ranges(:,1), ranges(:,2), alpha);
+valid = ~isnan(D);
+ranges = ranges(valid,:);
+D = D(valid);
+alpha = alpha(valid);
+
+% reject ranges not described by a power law
+p = arrayfun(@(a,b,c,d) bootstrapKSp(x,a,b,c,d,1000), ranges(:,1), ranges(:,2), D, alpha);
+ok = find(p > significanceLevel);
+[~,final] = max(diff(ranges(ok,:),1,2));
+
+alpha = alpha(ok(final));
+xmin = ranges(ok(final),1);
+xmax = ranges(ok(final),2);
+p = p(ok(final));
+
 end
 
-function i = upper_i(xmaxBound, xminBound, min_decade, base)
-    %see docs/powerLawFit.md for more information
-    i = floor(log(xmaxBound - xminBound - 10^min_decade)/log(base));
+
+% --- helper functions ---
+
+
+function y = logCeil(x,base,i)
+  y = floor(x + base.^i);
 end
 
-function [lower, upper] = bound_j(xmaxBound, xmin, min_decade, base)
-    %see docs/powerLawFit.md for more information
-    lower = floor(log(10^min_decade)/log(base));
-    upper = floor(log(xmaxBound - xmin)/log(base));
+
+function [lower,upper] = bound_j(xmaxBound,xmin,min_decade,base)
+  % see docs/powerLawFit.md for more information
+  lower = repmat(floor(log(10^min_decade) / log(base)), size(xmin));
+  upper = floor(log(xmaxBound - xmin) / log(base));
 end
 
-function total = get_total_iteration(xmaxBound, xminBound, min_decade, base)
-    imax = upper_i(xmaxBound, xminBound, min_decade, base);
-    total = 0;
-    for i = 0:imax
-        xmin = getXmin(xminBound, base, i);
-        [lowerj, upperj] = bound_j(xmaxBound, xmin, min_decade, base);
-        total = total + upperj - lowerj +1;
-    end
+
+function D = ksStatistic(x,xmin,xmax,alpha,n_min)
+  X = x(x >= xmin & x <= xmax);
+  if length(X) < n_min
+    D = NaN;
+  else
+    t = (xmin : xmax).';
+    w = exp(-alpha * log(t));
+    C = 1 / sum(w);
+    pmf = C * w;
+    cdf_theoretical = cumsum(pmf);
+    cdf_emp = histcounts(X,[t;xmax+1],'Normalization','cdf').';
+    D = max(abs(cdf_emp - cdf_theoretical));
+  end
 end
-    
+
+
+function p = bootstrapKSp(x,xmin,xmax,D,alpha,n_boot)
+  X = x(x >= xmin & x <= xmax);
+  n = numel(X);
+
+  t = (xmin : xmax).';
+  w = exp(-alpha * log(t));
+  C = 1 / sum(w);
+  pmf = C * w;
+  cdf_theoretical = cumsum(pmf);
+
+  D_boot = zeros(n_boot,1);
+  for b = 1 : n_boot
+    % sample from discrete power law via inverse CDF
+    X_boot = randsample(t,n,true,pmf);
+    % empirical CDF via counts
+    cdf_emp = histcounts(X_boot,[t;xmax+1],'Normalization','cdf').';
+    % bootstrapped statistic
+    D_boot(b) = max(abs(cdf_emp - cdf_theoretical));
+  end
+
+  p = mean(D_boot >= D);
+end
