@@ -1,6 +1,6 @@
 function alpha = DiscreteBoundedPowerLawMLE(x, xmin, xmax, step)
     % perform MLE maximization to find the best power law parameter on raw data x, with the constrain xmin and xmax
-    X = x((x>=xmin) & (x<=xmax));
+    X = x(x >= xmin & x <= xmax);
     n = length(X);
     l1 = sum(log(X));
     t = xmin:xmax;
@@ -28,6 +28,5 @@ function D = derivative(n, l1, t, log_t, alpha)
     t_alpha = t.^(-alpha);
     l2 = sum(log_t.*t_alpha);
     l3 = sum(t_alpha);
-
     D = -l1 + n * l2 / l3;
 end
