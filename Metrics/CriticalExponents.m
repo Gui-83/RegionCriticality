@@ -1,4 +1,6 @@
 function [alpha,a_range,a_D,beta,b_range,b_D,gam_th,gam_area,gam_shape,chi] = CriticalExponents(session,region,states,events,window,opt)
+% CriticalExponents Estimate critical exponents from neuronal spike avalanches
+% Returns NaNs if the distributions of S or T fails the KS bootstrap goodness-of-fit test for a power law
 
 arguments
   session (1,1) string
@@ -79,11 +81,9 @@ for s = 1 : length(states)
 
   % 3. shape collapse
 
-  % size_t = R.avalSizeOverTime(states(s),region,'restriction',event_intervals);
-  % [size_t,durations_t] = separateAvalSizeTimeDependent(size_t);
-  % size_t_avrg = AvalAverageSizeTimeDependent(size_t);
-  % [~,shape,durations] = transformCollapseShape(size_t_avrg);
-  % gam_shape.(statename) = fitCollapseShape(durations,shape,20);
+  size_t = R.avalSizeOverTime(states(s),region,'restriction',event_intervals);
+  [size_t,durations_t] = separateAvalSizeTimeDependent(size_t);
+  gam_shape.(statename) = fitShapeCollapse(size_t,50);
 
   % 4. branching ratio
 
@@ -92,8 +92,8 @@ for s = 1 : length(states)
 
   % 5. autocorrelation decay
 
-  % [~,decay,mean_autocorr,lm_autocorr] = autocorrelationDecay(size_t, durations_t, 1/3, 'min_uniqueST_lengths',5);
-  % chi.(statename) = -lm_autocorr.Coefficients.Estimate(2);
+  [~,decay,mean_autocorr,lm_autocorr] = autocorrelationDecay(size_t, durations_t, 1/3, 'min_lifetime',5);
+  chi.(statename) = -lm_autocorr.Coefficients.Estimate(2);
 
 end
 
