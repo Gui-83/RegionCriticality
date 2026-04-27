@@ -56,13 +56,14 @@ for s = 1 : length(states)
 
   % 2. power laws on S and T
 
-  [alpha.(statename),xmin_T.(statename),xmax_T.(statename),p_T.(statename),h_T.(statename),a_D.(statename)] = fitPLLowBound(T.(statename),30,opt.p_thresh);
+  [alpha.(statename),xmin_T.(statename),xmax_T.(statename),p_T.(statename),h_T.(statename),a_D.(statename)] = fitPLLowBound(T.(statename),30,opt.p_thresh); % WAS swipeMLEDiscretePowerLawBounds
+  % set output to NaN when the distribution failed to pass the KS test as a power law
   if ~h_T.(statename)
     [alpha.(statename),xmin_T.(statename),xmax_T.(statename),a_D.(statename)] = deal(NaN);
-    skip = true;
+    skip = true; % skip following calculations if KS test failed
   end
   a_range.(statename) = log10(xmax_T.(statename) / xmin_T.(statename));
-  [beta.(statename),xmin_S.(statename),xmax_S.(statename),p_S.(statename),h_S.(statename),b_D.(statename)] = fitPLLowBound(S.(statename),30,opt.p_thresh);
+  [beta.(statename),xmin_S.(statename),xmax_S.(statename),p_S.(statename),h_S.(statename),b_D.(statename)] = fitPLLowBound(S.(statename),30,opt.p_thresh); % WAS swipeMLEDiscretePowerLawBounds
   if ~h_S.(statename)
     [beta.(statename),xmin_S.(statename),xmax_S.(statename),b_D.(statename)] = deal(NaN);
     skip = true;
@@ -86,8 +87,8 @@ for s = 1 : length(states)
 
   % 4. branching ratio
 
-  %[profile, time] = R.avalProfiles(state,region);
-  %[m, r, lm_branching] = branchingRatio(profile, 12);
+  % [profile, time] = R.avalProfiles(states(s),region);
+  % [m, r, lm_branching] = branchingRatio(profile, 12);
 
   % 5. autocorrelation decay
 
@@ -110,7 +111,7 @@ function plotInDebug()
   PlotIntervals(R.eventIntervals('slownr'),'color',[1,1,0])
 
   %%
-  [~,axs] = makeFigure('',upper(region)+" "+opt.threshold+"% "+window+" s",[1,5],'size',[25,5.3]);
+  [~,axs] = makeFigure('',R.printBasename+" "+upper(region)+" n: "+R.nNeurons(region)+" t: "+opt.threshold+"% w: "+window+" s",[1,5],'size',[25,5.3]);
   fields = string(fieldnames(S));
   for i = 1 : length(fields)
     plotDiscretePowerLawDensityFit(S.(fields(i)),xmin_S.(fields(i)),xmax_S.(fields(i)),beta.(fields(i)),'\beta','ax',axs(i),'n_bins',200)

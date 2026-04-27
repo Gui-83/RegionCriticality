@@ -36,7 +36,7 @@ j_max = ceil(log(xmaxBound - x_min) / log(base));
 x_max = arrayfun(@(x,y) logCeil(x,base,j_min:y,xmaxBound), x_min, j_max, 'UniformOutput', false); % xmaxBound is always included in ranges
 ranges = [repelem(x_min,cellfun(@numel,x_max)),[x_max{:}].'];
 
-% fit exponent, copmute KS statistic
+% fit exponent, compute KS statistic
 n_elem_min = 100;
 alpha = arrayfun(@(a,b) DiscreteBoundedPowerLawMLE(x,a,b,dicoStep), ranges(:,1), ranges(:,2));
 D = arrayfun(@(a,b,c) ksStatistic(x,a,b,c,n_elem_min), ranges(:,1), ranges(:,2), alpha);
@@ -92,7 +92,6 @@ function p = bootstrapKSp(x,xmin,xmax,D,alpha,n_boot,dicoStep)
   w = exp(-alpha * log(t));
   C = 1 / sum(w);
   pmf = C * w;
-  %cdf_theoretical = cumsum(pmf);
 
   D_boot = zeros(n_boot,1);
   for b = 1 : n_boot
@@ -116,8 +115,10 @@ end
 % --- Extra code to plot examples in debug mode ---
 
 
-function powerLawPdf()
-
+function [pmf,t] = powerLawPdf(x_min,x_max,alpha)
+  t = (x_min : x_max).';
+  W = exp(-alpha * log(t));
+  pmf = W / sum(W);
 end
 
 
@@ -126,14 +127,14 @@ function plotInDebug()
 
   % plot empirical and fitted pdfs for a given range
   k = 10;
-  XX = x(x >= ranges(k,1) & x <= ranges(k,2));
-  figure, plotDistr(XX,'log',true)
-  T = (ranges(k,1) : ranges(k,2)).';
-  W = exp(-alpha(k) * log(T));
-  C = 1 / sum(W);
-  pmf = C * W;
-  loglog(T,pmf)
-  clearvars XX T W C pmf
-  % I CAN FIND A COEFF to do pmf/coeff AND GET NICE PLOT
+  figure, plotDistr(x,'log',true)
+  %XX = x(x >= x_min(k) & x <= xmaxBound); % plot pdf(x) only in range
+  %figure, plotDistr(XX,'log',true)
+  xline([x_min(k),xmaxBound],'k--')
+  [pmf,t] = powerLawPdf(x_min(k),xmaxBound,alpha(k));
+  pmf_data = histcounts(x,[t-0.5;t(end)+0.5],'Normalization','pdf').';
+  pmf = pmf * trapz(t,pmf_data) / trapz(t,pmf); % rescale pdf to match whole data plot
+  loglog(t,pmf)
+  clearvars t pmf pmf_data
 
 end

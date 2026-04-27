@@ -32,4 +32,3 @@ xline(opt.ax,[xmin,xmax],'k--','HandleVisibility', 'off')
 %n_total_avals = length(x);
 
 title(opt.ax, opt.title);
-end
