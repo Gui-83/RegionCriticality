@@ -1,4 +1,4 @@
-function [alpha, beta, expected_gamma, gam_area, gam_shape, chi, diffgam] = CriticalExponents(session,region,states,events,window,opt)
+function [alpha,a_range,a_D,beta,b_range,b_D,gam_th,gam_area,gam_shape,chi] = CriticalExponents(session,region,states,events,window,opt)
 
 arguments
   session (1,1) string
@@ -8,6 +8,7 @@ arguments
   window (1,1) = 0.05
   opt.labels (:,1) string = states+"_"+events
   opt.threshold (1,1) {mustBeNumeric,mustBeNonnegative} = 30
+  opt.p_thresh (1,1) = 0.1
   opt.S (1,:) double = NaN
   opt.T (1,:) double = NaN
 end
@@ -18,13 +19,15 @@ events = string(cellfun(@(x) x([x(1)~='^',true(1,numel(x)-1)]),events,'UniformOu
 unique_events = unique(events(events~="all"));
 events = string(cellfun(@(y) y{end}, cellfun(@(x) strsplit(x,'/'),events,'UniformOutput',false),'UniformOutput',false));
 
-R = regions(session,'states',unique(states),'events',unique_events);
+R = regions(session,'states',unique(states),'events',unique_events,'verbose',false);
 R = R.computeAvalanches(window,1,opt.threshold);
 window = R.avalWindow(region);
 
 for s = 1 : length(states)
 
   statename = opt.labels(s);
+  [gam_area.(statename),gam_shape.(statename),chi.(statename)] = deal(NaN);
+  skip = false;
 
   % 1. intervals, S, T
 
@@ -53,46 +56,43 @@ for s = 1 : length(states)
 
   % 2. power laws on S and T
 
-  [beta.(statename),xmin_S.(statename),xmax_S.(statename),p_S.(statename),h_S.(statename)] = fitPLLowBound(S.(statename)); % swipeMLEDiscretePowerLawBounds(S.(statename));
-  [alpha.(statename),xmin_T.(statename),xmax_T.(statename),p_T.(statename),h_T.(statename)] = fitPLLowBound(T.(statename)); % swipeMLEDiscretePowerLawBounds(T.(statename));
-  expected_gamma.(statename) = (alpha.(statename) - 1) / (beta.(statename) - 1);
-
-  % 3. Area
-
+  [alpha.(statename),xmin_T.(statename),xmax_T.(statename),p_T.(statename),h_T.(statename),a_D.(statename)] = fitPLLowBound(T.(statename),30,opt.p_thresh);
+  if ~h_T.(statename)
+    [alpha.(statename),xmin_T.(statename),xmax_T.(statename),a_D.(statename)] = deal(NaN);
+    skip = true;
+  end
+  a_range.(statename) = log10(xmax_T.(statename) / xmin_T.(statename));
+  [beta.(statename),xmin_S.(statename),xmax_S.(statename),p_S.(statename),h_S.(statename),b_D.(statename)] = fitPLLowBound(S.(statename),30,opt.p_thresh);
+  if ~h_S.(statename)
+    [beta.(statename),xmin_S.(statename),xmax_S.(statename),b_D.(statename)] = deal(NaN);
+    skip = true;
+  end
+  b_range.(statename) = log10(xmax_S.(statename) / xmin_S.(statename));
+  gam_th.(statename) = (alpha.(statename) - 1) / (beta.(statename) - 1);
+  if skip
+    continue
+  end
   A = getArea(T.(statename),S.(statename));
   lm = fitPowerFunction(A);
   gam_area.(statename) = lm.Coefficients.Estimate(2);
 
-end
+  % 3. shape collapse
 
-% TEMP
-for s = 1 : length(states)
+  % size_t = R.avalSizeOverTime(states(s),region,'restriction',event_intervals);
+  % [size_t,durations_t] = separateAvalSizeTimeDependent(size_t);
+  % size_t_avrg = AvalAverageSizeTimeDependent(size_t);
+  % [~,shape,durations] = transformCollapseShape(size_t_avrg);
+  % gam_shape.(statename) = fitCollapseShape(durations,shape,20);
 
-  
-  
-
-  %Shape Collapse
-  aval_timeDependentSize = R.avalSizeOverTime(states(s),region);
-  [ST, lengthST] = separateAvalSizeTimeDependent(aval_timeDependentSize);
-
-  ST_AVG = AvalAverageSizeTimeDependent(ST, lengthST);
-  [x, shape, T_cs] = transformCollapseShape(ST_AVG);
-
-  [T_cs, shape] = lifetimeThresholdCollapseShapeTransformed(T_cs, shape, 4);
-  gam_shape.(statename) = fitCollapseShape(T_cs, shape, 10);
-
-  % Branching ratio
+  % 4. branching ratio
 
   %[profile, time] = R.avalProfiles(state,region);
   %[m, r, lm_branching] = branchingRatio(profile, 12);
 
-  % Autocorrelation Decay
+  % 5. autocorrelation decay
 
-  [ST, lengthST] = separateAvalSizeTimeDependent(aval_timeDependentSize);
-  [~, decay, mean_autocorr, lm_autocorr] = autocorrelationDecay(ST, lengthST, 1/3, min_uniqueST_lengths=5);
-  chi.(statename) = -lm_autocorr.Coefficients.Estimate(2);
-
-  diffgam.(statename) = gam_area.(statename)-expected_gamma.(statename);
+  % [~,decay,mean_autocorr,lm_autocorr] = autocorrelationDecay(size_t, durations_t, 1/3, 'min_uniqueST_lengths',5);
+  % chi.(statename) = -lm_autocorr.Coefficients.Estimate(2);
 
 end
 

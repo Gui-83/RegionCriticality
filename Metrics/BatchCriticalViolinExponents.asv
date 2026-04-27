@@ -3,16 +3,16 @@ arguments
     sessions
     region (1,1) string = "nr"
 end
-states_list = ["sws", "other", "rem", "all", sws];
+states_list = ["all", "other", "rem", "sws", "sws"];
 event = "slownr";
-event2 = 
-event_list = ["all", "all", "all", event, event2];
+event2 = "exceptslownr";
+event_list = [event, "all", "all", "all", event2];
 %region = "nr";
 window = 0.05;
 
 stats_names = {'\alpha', '\beta', '\gamma_{exp}', '\gamma_{area}', '\gamma_{shape}', '\chi', '\gamma_{area} - \gamma_{exp}'};
 n_stats = 7;
-n_conditions = 4; % sws, other, rem, slownr
+n_conditions = 5; % sws, other, rem, slownr
 
 [lessessions,extra_args] = readBatchFile(sessions);
 n_sessions = length(lessessions);
@@ -31,3 +31,5 @@ diffgam = reverseCellStruct(diffgam);
 %data = [results(1,:), results(2,:), results(3,:), results(4,:)];
 
 stats_list = {alpha, beta, expected_gamma, gam_area, gam_shape, chi, diffgam};
+
+[fig,axs] = makeFigure('crit','',[2,4],'size',[25,0]);
