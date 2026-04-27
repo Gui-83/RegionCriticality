@@ -9,7 +9,7 @@ t = (xmin : xmax).';
 log_t = log(t);
 
 lower = 1.1;
-upper = 6;
+upper = 10;
 
 % dichotomy to find 0 of the log-Likelihood derivative (see docs/powerLawFit.md)
 for i = 1 : step

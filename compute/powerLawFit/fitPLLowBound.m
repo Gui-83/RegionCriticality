@@ -1,4 +1,4 @@
-function [alpha,xmin,xmax,p,h] = fitPLLowBound(x,n_search,significanceLevel,dicoStep)
+function [alpha,xmin,xmax,p,h,D] = fitPLLowBound(x,n_search,significanceLevel,dicoStep)
 % x: data
 % significanceLevel: significance level for the Kolmogorov-Smirnov test
 % dicoStep: number of step to perform the dichotomy
@@ -20,11 +20,11 @@ x_min = unique(ceil(logspace(log10(xminBound),log10(xmaxBound-1),n_search)));
 alpha = arrayfun(@(a) DiscreteBoundedPowerLawMLE(x,a,xmaxBound,dicoStep), x_min);
 n_elem_min = 100;
 D = arrayfun(@(a,b) ksStatistic(x,a,xmaxBound,b,n_elem_min), x_min, alpha);
-[~,target] = min(D);
+[D,target] = min(D);
 
 % reject range if not described by a power law
-n_boot = 500;
-p = bootstrapKSp(x,x_min(target),xmaxBound,D(target),alpha(target),n_boot,dicoStep);
+n_boot = 1000;
+p = bootstrapKSp(x,x_min(target),xmaxBound,D,alpha(target),n_boot,dicoStep);
 alpha = alpha(target);
 xmin = x_min(target);
 xmax = xmaxBound;
@@ -60,7 +60,6 @@ function p = bootstrapKSp(x,xmin,xmax,D,alpha,n_boot,dicoStep)
   w = exp(-alpha * log(t));
   C = 1 / sum(w);
   pmf = C * w;
-  %cdf_theoretical = cumsum(pmf);
 
   D_boot = zeros(n_boot,1);
   for b = 1 : n_boot
