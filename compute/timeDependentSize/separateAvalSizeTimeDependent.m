@@ -1,29 +1,23 @@
-function [avalArrays, avalArraysSize] = separateAvalSizeTimeDependent(timeDependendentSize)
-arguments
-    timeDependendentSize
-end
-    % Separate every avalanche profile, this is useful for the shape
-    % collapse. Each avalanche profile is stored in the avalArrays cell and
-    % there corresponding length is stored in avalArraysSize
+function [profiles,lifetimes] = separateAvalSizeTimeDependent(size_t)
+% separate avalanche profiles, useful for shape collapse
+% size_t : vector of avalanche profiles separated by zeros
 
-    %this function assume that in the input, each avalanche is separated by
-    %a 0 (this is the aval_timeDependendentSize member of region)
-    if isempty(timeDependendentSize)
-        avalArrays = {};
-        return
-    end
-    if timeDependendentSize(1) ~= 0
-        timeDependendentSize = [0;timeDependendentSize];
-    end
-    if timeDependendentSize(end) ~= 0
-        timeDependendentSize = [timeDependendentSize;0];
-    end
-    zerosPos = find(timeDependendentSize == 0);
-    n = length(zerosPos);
-    avalArrays = cell(1, n-1);
-    avalArraysSize = zeros(1, n-1);
-    for i = 2:n
-        avalArrays{i - 1} = timeDependendentSize(zerosPos(i-1)+1:zerosPos(i)-1);
-        avalArraysSize(i-1) = zerosPos(i)-1 - zerosPos(i-1);
-    end
-end    
+if isempty(size_t)
+  profiles = {};
+  return
+end
+if size_t(1) ~= 0
+  size_t = [0;size_t];
+end
+if size_t(end) ~= 0
+  size_t = [size_t;0];
+end
+
+zerosPos = find(size_t == 0);
+n = length(zerosPos);
+profiles = cell(n-1,1);
+lifetimes = zeros(n-1,1);
+for i = 2 : n
+  profiles{i-1} = size_t(zerosPos(i-1)+1 : zerosPos(i)-1);
+  lifetimes(i-1) = zerosPos(i) - 1 - zerosPos(i-1);
+end

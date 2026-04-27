@@ -1,34 +1,60 @@
-function gam = fitCollapseShape(T, shape, dicoStep)
-    % compute the optimal gamma for the collapse shape by minimizing the variability of the common
-    % shape acccros each difference lifetime
-    % T = lifetime
-    % shape = collapse shape (see docs/README.md for more information)
-    % dicoStep = number of step to perform the dichotomy
+function gam = fitCollapseShape(T,shape,dicoStep)
+% compute the optimal gamma for the collapse shape by minimizing the variability of the common
+% shape acccros each difference lifetime
+% T : lifetimes
+% shape : collapsed shape (see docs/README.md for more information)
+% dicoStep : number of step to perform the dichotomy
 
-
-    %n = size(shape, 2);
-    %scalarProductMatrix = getScalarMatrix(shape);
-
-    if isempty(shape)
-        gam = NaN;
-        return
-    end
-
-    left = 1;
-    right = 4;
-    for i = 1:dicoStep
-        middle = (right+left)/2; % here middle is the candidate gamma
-        %L_middle = Dloss(scalarProductMatrix, T, middle, n);
-        f = scaleCollapseShape(shape, T, middle);
-        L_middle = DvariabilityLoss(f, T);
-        if L_middle < 0
-            left = middle;
-        else
-            right = middle;
-        end
-    end
-    gam = (left+right)/2;
+arguments
+  T (1,:)
+  shape
+  dicoStep (1,1) = 15
 end
+
+if isempty(shape)
+  gam = NaN;
+  return
+end
+
+left = 1;
+right = 4;
+for i = 1 : dicoStep
+  middle = (right+left) / 2; % candidate gamma
+  f = scaleCollapseShape(shape, T, middle);
+  L_middle = DvariabilityLoss(f,T);
+  if L_middle < 0
+    left = middle;
+  else
+    right = middle;
+  end
+end
+gam = (left+right) / 2;
+
+end
+
+% --- helper functions ---
+
+function scale_shape = scaleCollapseShape(shape, T, gam)
+% scale the shape according to eq. 49 of Yang Tian Theoretical foundations of studying ...
+  scale_shape = shape.*T.^(1-gam);
+end
+
+function D = DvariabilityLoss(f, T)
+    % derivative of the variability at the middle point (in the main loop)
+    m = size(f, 2);
+    mu = mean(f, 2);
+    f_ln_T = f.*log(T);
+    mu_f_ln_T = mean(f_ln_T, 2);
+    L1 = sum((f - mu).*(mu_f_ln_T - f_ln_T), 2);
+    L2 = mu;
+    L3 = mu_f_ln_T;
+    L4 = var(f, 0, 2);
+
+    L = (2/(m-1)*L1.*L2.^2 + 2*L2.*L3.*L4)./L2.^4;
+    D = mean(L);
+
+end
+
 
 function scalarProd = getScalarMatrix(shape)
     m = size(shape, 1);
@@ -66,20 +92,4 @@ function L = variabilityLoss(f)
     mu = mean(f, 2);
     variance = var(f, 0, 2);
     L = mean(variance ./ mu .^ 2);
-end
-
-function D = DvariabilityLoss(f, T)
-    % this is the derivative of the variability at the point middle (in the main loop)
-    m = size(f, 2);
-    mu = mean(f, 2);
-    f_ln_T = f.*log(T);
-    mu_f_ln_T = mean(f_ln_T, 2);
-    L1 = sum((f - mu).*(mu_f_ln_T - f_ln_T), 2);
-    L2 = mu;
-    L3 = mu_f_ln_T;
-    L4 = var(f, 0, 2);
-
-    L = (2/(m-1)*L1.*L2.^2 + 2*L2.*L3.*L4)./L2.^4;
-    D = mean(L);
-
 end
